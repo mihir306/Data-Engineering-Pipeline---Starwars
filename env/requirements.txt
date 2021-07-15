@@ -1,0 +1,7 @@
+random2
+pandas 
+numpy
+faker
+requests
+sqlalchemy
+psycopg2
