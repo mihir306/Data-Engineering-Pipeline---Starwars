@@ -17,4 +17,5 @@ before_install:
  
  script:
   - docker-compose up --build
+  - echo finished
 
