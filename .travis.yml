@@ -14,9 +14,10 @@ before_install:
   - docker-compose down
   - docker ps -a
   - docker images
+  - docker-compose up --build
  
  install:
-  - docker-compose up --build
+  - pip install -r env/requirements.txt
   
  script:
   - echo finished
