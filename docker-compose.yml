@@ -10,7 +10,7 @@ services:
       - 5432:5432
     restart: always
     volumes:
-      - database_data:/Users/kavitachaudhary/Desktop/kavita_starwars/poster-kata/database/postgresql/data
+      - database_data:/Users/mihir/Desktop/mihir_starwars/poster-kata/database/postgresql/data
 volumes:
   database_data:
     driver: local
