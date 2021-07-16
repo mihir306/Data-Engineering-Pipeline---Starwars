@@ -5,6 +5,24 @@ import numpy as np
 import random
 import string
 
+#import psycopg2 as pg
+#from psycopg2.extensions import ISOLATION_LEVEL_AUTOCOMMIT 
+import sqlalchemy
+
+
+engine = sqlalchemy.create_engine("postgresql://postgres:NEWUSER123456#@localhost/dw")
+con = engine.connect()
+print(engine.table_names())
+#handel if the data alreay exists.
+table_name = 'STARSHIP_DETAILS_T'
+starShipDF.to_sql(table_name, con ,schema='starwars_dw',if_exists='replace')
+le_name1 ='STARSHIP_FILM_RELATION_T'
+starshipAndFilmRelDF.to_sql(table_name1, con ,schema='starwars_dw',if_exists='replace')
+table_name3 ='FILMS_DETAILS_T'
+filmsDF.to_sql(table_name3, con ,schema='starwars_dw',if_exists='replace')
+
+
+
 result=[]
 fake = Faker()
 nrow = 10
@@ -29,7 +47,7 @@ for i in range(10):
 
 salseDBDF['promo_code'] = result
 
-salseDBDF[['poster_content','ss_id']]= starShipDF[['name','ss_id']].sample(n=9)
+salseDBDF[['poster_content','starshipid']]= starShipDF[['name','starshipid']].sample(n=9)
 
 salseDBDF
 
@@ -39,7 +57,7 @@ table_name1 ='STARSHIP_POSTER_SALES_T'
 salseDBDF.to_sql(table_name1, con ,schema='sales_db',if_exists='replace')
 
 ##creation of customer table merging two datasets:salesDB and above creatd starship DF
-result = pd.merge(starShipDF, salseDBDF[['quantity','price','promo_code','ss_id','poster_content']],how='inner' ,left_on=['ss_id','name'], right_on=['ss_id','poster_content'], )
+result = pd.merge(starShipDF, salseDBDF[['quantity','price','promo_code','starshipid','poster_content']],how='inner' ,left_on=['starshipid','name'], right_on=['starshipid','poster_content'], )
 del result["poster_content"]
 result
 
@@ -47,4 +65,4 @@ result
 engine = sqlalchemy.create_engine("postgresql://postgres:NEWUSER123456#@localhost/dw")
 con = engine.connect()
 table_name = 'STARSHIP_DETAILS_T'
-result.to_sql(table_name, con ,schema='dw_starwars',if_exists='replace')
+result.to_sql(table_name, con ,schema='starwars_dw',if_exists='replace')
