@@ -13,22 +13,22 @@ import psycopg2
 
 
 # defined required constant values/link
-GetURLStar='http://swapi.dev/api/starships/'
-GetURLfilms="http://swapi.dev/api/films/"
+GetURLStar='https://swapi.dev/api/starships/'
+GetURLfilms="https://swapi.dev/api/films/"
 respStarshipList = []
 respStarshipAndFilmRelationList = []
 respFilmsList = []
 filmUrlRegex ="https:\/\/swapi.dev\/api\/films\/(\d+)"
 
 
-# creating dw_starwars schema in DataWare database
+# creating starwars_dw schema in dw database
 postgresConnection = psycopg2.connect(database="dw", user="starship", password="password321", host="db", port="5432")
 print("Database opened successfully")
 cur = postgresConnection.cursor()
-cur.execute('''create schema IF NOT EXISTS dw_starwars''')
+cur.execute('''create schema IF NOT EXISTS starwars_dw''')
 postgresConnection.commit()
 
-# creating sales_db schema in sales database
+# creating sales_db schema in sales_db database
 postgresConnection = psycopg2.connect(database="salesdb", user="starship", password="password321", host="db", port="5432")
 print("Database opened successfully")
 cur = postgresConnection.cursor()
@@ -36,24 +36,17 @@ cur.execute('''create schema IF NOT EXISTS sales_db''')
 postgresConnection.commit()
 
 
-# This function is to make HTTP GET requests calls and returing received Response.
+# This function is to GET requests calls and return received Response.
 def callAPI(link):
     #print(link)
-    try:
-        response = requests.get(link)
-    except requests.exceptions.ConnectionError as e:
-        response = "No response"
-    print(link)
-    print(response)
+    response = requests.get(link)
     return response
 
-# This function is to process given index and film lists as inputs and sets starship-films relation to respective List
 def buildStarShipFilmRelationList(idx,filmList):
     for filmUrl in filmList:
         filmId = re.search(filmUrlRegex, filmUrl)
         if filmId:
-            #print(filmId.group(1))
-            ssDict = {"ss_id":idx, "f_id":filmId.group(1)}
+            ssDict = {"starshipid":idx, "f_id":filmId.group(1)}
             respStarshipAndFilmRelationList.append(ssDict)
             getFilmsList(filmId.group(1),filmUrl)
         else:
@@ -62,7 +55,6 @@ def buildStarShipFilmRelationList(idx,filmList):
             
 # This function is to process Film API response and add details to films response list
 def getFilmsList(f_id,filmUrl):
-            # invokde GET api to fetch Film details
             film_Response= callAPI(filmUrl)
             # don't process further if API response is not success
             if(film_Response.status_code != 200):
@@ -73,17 +65,16 @@ def getFilmsList(f_id,filmUrl):
             respFilmsList.append(filmJsonResponse)
             
 # Program Execution : START here
-starshipIds = range(8, 16)
+starshipIds = range(2, 16)
 for i in starshipIds:
     # invokde GET api to fetch Startship details
-    #apiResponse = callAPI(GetURLStar + str(i))
-    apiResponse = callAPI("https://swapi.dev/api/starships/" +str(i))
+    apiResponse = callAPI(GetURLStar + str(i) + "/")
     # don't process further if API response is not success
     if(apiResponse.status_code != 200):
         print(apiResponse.status_code)
         continue
     jsonResponse = json.loads(apiResponse.text)
-    jsonResponse['ss_id']= i
+    jsonResponse['starshipid']= i
     #print(jsonResponse)
     buildStarShipFilmRelationList(i,jsonResponse.get('films'))
     jsonResponse.pop('films',None)
@@ -91,10 +82,10 @@ for i in starshipIds:
     
 # Creating StartShip DataFrame
 starShipDF=pd.DataFrame(respStarshipList)
-starShipDF=starShipDF[['ss_id','name', 'model','manufacturer', 'crew','passengers','starship_class']]
+starShipDF=starShipDF[['starshipid','name', 'model','manufacturer', 'crew','passengers','starship_class']]
 print(starShipDF)
 
-# Creating XREF StarShip-Film DataFrame
+# Creating StarShip-Film DataFrame
 starshipAndFilmRelDF=pd.DataFrame(respStarshipAndFilmRelationList)
 print(starshipAndFilmRelDF)
 
@@ -110,13 +101,13 @@ con = engine.connect()
 print(engine.table_names())
 
 table_name1 ='STARSHIP_FILM_RELATION_T'
-starshipAndFilmRelDF.to_sql(table_name1, con ,schema='dw_starwars',if_exists='replace')
+starshipAndFilmRelDF.to_sql(table_name1, con ,schema='starwars_dw',if_exists='replace')
 
 table_name3 ='FILMS_DETAILS_T'
-filmsDF.to_sql(table_name3, con ,schema='dw_starwars',if_exists='replace')
+filmsDF.to_sql(table_name3, con ,schema='starwars_dw',if_exists='replace')
 
 
-# Salesdb  loading with dummy fake data and creation of starship table
+# Salesdb  - loading fake data in sales_db
 result=[]
 fake = Faker()
 nrow = 10
@@ -135,31 +126,30 @@ salseDBDF['sales_rep'] = [fake.email()
               for _ in range(nrow)]
 
 for i in range(10):
-    # get random string of length 4 without repeating letters
     result_str = ''.join(random.sample(string.ascii_lowercase, 4))
     result .append(result_str)
 
 salseDBDF['promo_code'] = result
 
-salseDBDF[['poster_content','ss_id']]= starShipDF[['name','ss_id']].sample(n=9)
+salseDBDF[['poster_content','starshipid']]= starShipDF[['name','starshipid']].sample(n=9)
 
 salseDBDF
+
 
 engine = sqlalchemy.create_engine("postgresql://starship:password321@db/salesdb")
 con = engine.connect()
 table_name1 ='STARSHIP_POSTER_SALES_T'
 salseDBDF.to_sql(table_name1, con ,schema='sales_db',if_exists='replace')
 
-##creation of customer table merging two datasets:salesDB and above creatd starship DF
-result = pd.merge(starShipDF, salseDBDF[['quantity','price','promo_code','ss_id','poster_content']],how='inner' ,left_on=['ss_id','name'], right_on=['ss_id','poster_content'], )
+
+result = pd.merge(starShipDF, salseDBDF[['quantity','price','promo_code','starshipid','poster_content']],how='inner' ,left_on=['starshipid','name'], right_on=['starshipid','poster_content'], )
 del result["poster_content"]
 result
 
-# create StarShip table
 engine = sqlalchemy.create_engine("postgresql://starship:password321@db/dw")
 con = engine.connect()
 table_name = 'STARSHIP_DETAILS_T'
-result.to_sql(table_name, con ,schema='dw_starwars',if_exists='replace')
+result.to_sql(table_name, con ,schema='starwars_dw',if_exists='replace')
 
 
 # Summarizing the data :
@@ -167,13 +157,11 @@ con = psycopg2.connect(database="dw", user="starship", password="password321", h
 print("Database opened successfully")
 cur = con.cursor()
 cur.execute('''with cte as (
-select A.ss_id,string_agg(B.title ||' : '|| B.release_date,';')  as titleR from dw_starwars."STARSHIP_FILM_RELATION_T" A
-join dw_starwars."FILMS_DETAILS_T" B
+select A.starshipid,string_agg(B.title ||' : '|| B.release_date,';')  as titleR from starwars_dw."STARSHIP_FILM_RELATION_T" A
+join starwars_dw."FILMS_DETAILS_T" B
 on A.f_id=B.f_id
-group by A.ss_id)
-select A.*,B.titleR from dw_starwars."STARSHIP_DETAILS_T" A
-join cte B on A.ss_id=B.ss_id;''')
+group by A.starshipid)
+select A.*,B.titleR from starwars_dw."STARSHIP_DETAILS_T" A
+join cte B on A.starshipid=B.starshipid;''')
 rows = cur.fetchall()
 print(rows)
-
-
